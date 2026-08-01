@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the NoorScreen platform will be documented in this file.
+All notable changes to the Mollet Capital Screen platform will be documented in this file.
 
 ## [1.0.0] - 2026-08-01
 
