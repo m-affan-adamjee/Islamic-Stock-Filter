@@ -1,0 +1,6 @@
+{
+  "name": "Mollet Capital Screener",
+  "description": "Shariah Stock Screener & AAOIFI Compliance Platform by Mollet Capital",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
