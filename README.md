@@ -1,4 +1,4 @@
-#Mollet Capital Islamic Stock Filter🌙 — AI-Powered Shariah Stock Screener & AAOIFI Compliance Platform
+## Mollet Capital Islamic Stock Filter🌙 — AI-Powered Shariah Stock Screener & AAOIFI Compliance Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
