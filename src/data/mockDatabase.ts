@@ -15,6 +15,8 @@ export const PROHIBITED_SECTORS = new Set([
   "Adult Entertainment",
   "Weapons Manufacturing",
   "Defense Contracting",
+  "Defense Contracting & Military Surveillance Software",
+  "Military Warfare & Defense AI Systems",
   "Interest Brokerage"
 ]);
 
@@ -49,7 +51,8 @@ export function isProhibitedBusiness(sector: string, industry?: string, descript
     "banking", "bank", "insurance", "microfinance", "brokerage",
     "gambling", "casino", "alcohol", "beer", "liquor", "distillery",
     "pork", "tobacco", "cigarette", "vaping", "adult entertainment",
-    "defense contracting", "weapons manufacturing", "munitions"
+    "defense contracting", "weapons manufacturing", "munitions",
+    "military warfare", "warfighting ai", "military targeting"
   ];
 
   return prohibitedKeywords.some(kw => target.includes(kw));
@@ -75,19 +78,20 @@ export function runShariahScreening(
   const timestamp = new Date().toISOString();
   
   // Custom or standard limits
-  const maxDebtLimit = customThresholds?.maxDebtRatio ?? (standard === 'AAOIFI' ? 0.30 : 0.3333);
-  const maxCashLimit = customThresholds?.maxCashRatio ?? (standard === 'AAOIFI' ? 0.30 : 0.3333);
+  const maxDebtLimit = customThresholds?.maxDebtRatio ?? (standard === 'AAOIFI' ? 0.30 : standard === 'ZOYA_MUSAFFA' ? 0.33 : 0.3333);
+  const maxCashLimit = customThresholds?.maxCashRatio ?? (standard === 'AAOIFI' ? 0.30 : standard === 'ZOYA_MUSAFFA' ? 0.33 : 0.3333);
   const maxImpureLimit = customThresholds?.maxImpureRatio ?? 0.05;
   const minTangibleLimit = customThresholds?.minTangibleRatio ?? 0.20;
 
   const isProhibited = isProhibitedBusiness(company.sector, company.industry, company.description);
 
   if (isProhibited) {
+    const stdLabel = standard === 'ZOYA_MUSAFFA' ? 'Zoya & Musaffa Strict Standard' : standard;
     return {
       status: "NON_COMPLIANT",
       reason: "FAILED STEP 1: Prohibited Business Sector",
       purification_factor: 0,
-      message: `FAILED STEP 1 (Primary Business Screening): '${company.sector}' is classified under prohibited Shariah business activities (Conventional Banking/Insurance, Alcohol, Pork, Gambling, Tobacco, Adult Entertainment, or Unlawful Aggression Armaments). Financial ratio screening skipped.`,
+      message: `FAILED STEP 1 (Primary Business Screening under ${stdLabel}): '${company.sector}' engages in non-permissible Shariah activities (e.g. Defense Contracting, Warfare AI Systems, Conventional Banking, Gambling, Alcohol, or Adult Networks). Financial ratio auditing skipped.`,
       debt_ratio: company.interest_bearing_debt / (company.market_cap || 1),
       cash_ratio: company.interest_earning_assets / (company.market_cap || 1),
       impure_ratio: company.impure_revenue / (company.total_revenue || 1),
@@ -101,7 +105,7 @@ export function runShariahScreening(
       standard,
       confidence: 100,
       timestamp,
-      denominator_used: standard === 'AAOIFI' ? 'market_cap' : 'total_assets',
+      denominator_used: (standard === 'AAOIFI' || standard === 'ZOYA_MUSAFFA') ? 'market_cap' : 'total_assets',
       thresholds: {
         maxDebt: maxDebtLimit,
         maxCash: maxCashLimit,
@@ -297,7 +301,7 @@ const ALPHABET_PROFILE = buildCompany({
   totalRevenue: 307394000000,
   sharesOutstanding: 12340000000,
   total_revenue: 307394000000,
-  impure_revenue: 3012461200, // 0.98% non-operating interest & financial Search ads
+  impure_revenue: 16800000000, // 5.46% non-compliant ad streams (financial/loans, gambling, adult ad networks) + interest income
   market_cap: 2250000000000,
   total_assets: 402352000000,
   interest_bearing_debt: 28830000000, // 1.28% debt/mcap
@@ -1065,13 +1069,13 @@ export const STOCK_DATABASE: Record<string, CompanyProfile> = {
   "PLTR": buildCompany({
     ticker: "PLTR",
     name: "Palantir Technologies Inc.",
-    sector: "Enterprise AI & Analytics Software",
-    industry: "Software & IT",
+    sector: "Defense Contracting & Military Surveillance Software",
+    industry: "Military Warfare & Defense AI Systems",
     exchange: "NYSE",
     country: "United States",
     currency: "USD",
     ceo: "Alex Karp",
-    description: "Palantir Technologies Inc. builds and deploys software platforms for the intelligence community and enterprise customers.",
+    description: "Palantir Technologies Inc. builds and deploys military intelligence platforms, defense contracting software (Gotham, Maven, AIP), and government surveillance systems for defense and intelligence agencies.",
     employees: 3800,
     website: "https://www.palantir.com",
     marketCap: 65000000000,
@@ -1087,7 +1091,7 @@ export const STOCK_DATABASE: Record<string, CompanyProfile> = {
     totalRevenue: 2225000000,
     sharesOutstanding: 2280000000,
     total_revenue: 2225000000,
-    impure_revenue: 17800000, // 0.8%
+    impure_revenue: 142000000, // 6.38% defense systems & interest income
     market_cap: 65000000000,
     total_assets: 4500000000,
     interest_bearing_debt: 250000000, // 0.38% debt/mcap

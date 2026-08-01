@@ -1,4 +1,4 @@
-export type ShariahStandard = 'AAOIFI' | 'MSCI' | 'SP' | 'DJ' | 'CUSTOM';
+export type ShariahStandard = 'AAOIFI' | 'ZOYA_MUSAFFA' | 'MSCI' | 'SP' | 'DJ' | 'CUSTOM';
 
 export type ComplianceStatus = 'COMPLIANT' | 'NON_COMPLIANT';
 

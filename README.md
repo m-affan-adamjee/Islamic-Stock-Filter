@@ -1,11 +1,11 @@
-## Mollet Capital Islamic Stock Filter🌙 — AI-Powered Shariah Stock Screener & AAOIFI Compliance Platform
+# NoorScreen 🌙 — AI-Powered Shariah Stock Screener & AAOIFI Compliance Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
 [![AAOIFI Standard](https://img.shields.io/badge/AAOIFI-Standard--21-blue.svg)]()
 [![Powered by Gemini](https://img.shields.io/badge/AI-Gemini--3.6--Flash-8A2BE2.svg)]()
 
-**Mollet Capital Screener** is an enterprise-grade fintech platform designed to screen publicly listed equities for Shariah compliance according to the **AAOIFI (Accounting and Auditing Organization for Islamic Financial Institutions)** methodology, with pluggable support for MSCI Islamic, S&P Shariah, Dow Jones Islamic, and custom user thresholds.
+**NoorScreen** is an enterprise-grade fintech platform designed to screen publicly listed equities for Shariah compliance according to the **AAOIFI (Accounting and Auditing Organization for Islamic Financial Institutions)** methodology, with pluggable support for MSCI Islamic, S&P Shariah, Dow Jones Islamic, and custom user thresholds.
 
 ---
 
@@ -36,7 +36,7 @@
 
 ```
                      +----------------------------------+
-                     |       Mollet Capital Screener    |
+                     |        NoorScreen Frontend       |
                      |  React 19, TypeScript, Tailwind  |
                      |  Recharts, Lucide, Motion        |
                      +----------------------------------+

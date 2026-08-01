@@ -10,6 +10,7 @@ import {
   runShariahScreening
 } from './src/data/mockDatabase';
 import { getCrossValidatedCompanyProfile } from './src/services/multiSourceFetcher';
+import { searchYahooTickers } from './src/services/yahooFinance';
 import { CompanyProfile, ShariahStandard, CustomThresholds } from './src/types';
 
 async function resolveAndFetchCompany(tickerRaw: string): Promise<CompanyProfile> {
@@ -82,7 +83,7 @@ async function startServer() {
     });
   });
 
-  // 2. Search endpoint
+  // 2. Universal Search endpoint for ALL NASDAQ & NYSE equities
   app.get('/api/search', async (req, res) => {
     const q = (req.query.q as string || '').toLowerCase().trim();
     if (!q) {
@@ -90,9 +91,9 @@ async function startServer() {
     }
 
     const resolved = resolveTickerAlias(q);
-
-    // Search existing DB
     const matchesMap = new Map<string, CompanyProfile>();
+
+    // 1. Search existing local database snapshots
     Object.values(STOCK_DATABASE).forEach(c => {
       if (
         c.ticker.toLowerCase().includes(q) ||
@@ -103,15 +104,30 @@ async function startServer() {
       }
     });
 
-    const matches = Array.from(matchesMap.values());
-
-    // If no direct DB match, attempt live lookup
-    if (matches.length === 0 && q.length >= 2) {
-      const live = await resolveAndFetchCompany(q);
-      matches.push(live);
+    // 2. Query live Yahoo Finance search API for any NASDAQ / NYSE stock symbol
+    if (q.length >= 1) {
+      try {
+        const liveHits = await searchYahooTickers(q);
+        for (const hit of liveHits) {
+          if (!matchesMap.has(hit.ticker)) {
+            // Fetch live validated company profile for matched quote
+            const liveProfile = await resolveAndFetchCompany(hit.ticker);
+            matchesMap.set(hit.ticker, liveProfile);
+          }
+        }
+      } catch (err) {
+        console.warn('Live search feed fallback warning:', err);
+      }
     }
 
-    res.json(matches.slice(0, 10));
+    // 3. Direct lookup fallback
+    if (matchesMap.size === 0 && q.length >= 2) {
+      const direct = await resolveAndFetchCompany(q);
+      matchesMap.set(direct.ticker, direct);
+    }
+
+    const results = Array.from(matchesMap.values());
+    res.json(results.slice(0, 10));
   });
 
   // 3. Featured / Popular compliant stocks

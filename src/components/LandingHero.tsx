@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShieldCheck, 
   Sparkles, 
   Calculator, 
-  BookOpen, 
   ArrowRight,
   ShieldAlert,
   Building2,
-  TrendingUp
+  Search,
+  CheckCircle2,
+  XCircle,
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
-import { MolletLogo } from './MolletLogo';
+import { CompanyProfile } from '../types';
 
 interface LandingHeroProps {
   onSearch: (ticker: string) => void;
@@ -22,50 +25,190 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
   onExplorePopular,
   onNavigateTab
 }) => {
+  const [heroSearchQuery, setHeroSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<CompanyProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Live real-time search trigger
+  useEffect(() => {
+    if (!heroSearchQuery.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(heroSearchQuery)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+          setShowDropdown(true);
+        }
+      } catch (err) {
+        console.error('Hero live search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [heroSearchQuery]);
+
+  const handleSelectTicker = (ticker: string) => {
+    onSearch(ticker);
+    setHeroSearchQuery('');
+    setShowDropdown(false);
+  };
+
   const popularTickers = [
-    { ticker: 'NVDA', name: 'NVIDIA', status: 'COMPLIANT', sector: 'Semiconductors' },
-    { ticker: 'AAPL', name: 'Apple', status: 'COMPLIANT', sector: 'Consumer Electronics' },
-    { ticker: 'MSFT', name: 'Microsoft', status: 'COMPLIANT', sector: 'Software' },
-    { ticker: 'TSLA', name: 'Tesla', status: 'COMPLIANT', sector: 'Clean Energy' },
-    { ticker: 'JPM', name: 'JPMorgan', status: 'NON_COMPLIANT', sector: 'Conventional Banking' },
-    { ticker: 'JNJ', name: 'Johnson & Johnson', status: 'COMPLIANT', sector: 'Healthcare' },
-    { ticker: 'LMT', name: 'Lockheed Martin', status: 'NON_COMPLIANT', sector: 'Weapons & Defense' },
-    { ticker: 'XOM', name: 'Exxon Mobil', status: 'COMPLIANT', sector: 'Energy' }
+    { ticker: 'NVDA', name: 'NVIDIA', status: 'COMPLIANT', note: 'Halal (Semiconductors)' },
+    { ticker: 'PLTR', name: 'Palantir', status: 'NON_COMPLIANT', note: 'Non-Halal (Defense Systems)' },
+    { ticker: 'GOOGL', name: 'Alphabet / Google', status: 'NON_COMPLIANT', note: 'Non-Halal (Impure Ads > 5%)' },
+    { ticker: 'AAPL', name: 'Apple', status: 'COMPLIANT', note: 'Halal (Hardware & Services)' },
+    { ticker: 'MSFT', name: 'Microsoft', status: 'COMPLIANT', note: 'Halal (Enterprise Software)' },
+    { ticker: 'TSLA', name: 'Tesla', status: 'COMPLIANT', note: 'Halal (Clean Vehicles)' },
+    { ticker: 'JPM', name: 'JPMorgan', status: 'NON_COMPLIANT', note: 'Non-Halal (Riba Banking)' },
+    { ticker: 'AMD', name: 'AMD', status: 'COMPLIANT', note: 'Halal (Processors)' },
+    { ticker: 'DIS', name: 'Disney', status: 'NON_COMPLIANT', note: 'Non-Halal (Entertainment)' }
   ];
 
   return (
-    <div className="space-y-16 py-8">
+    <div className="space-y-16 py-6">
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-800 text-white p-8 sm:p-12 lg:p-16 shadow-2xl">
+      <section className="relative overflow-hidden rounded-3xl bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-800 text-white p-8 sm:p-12 lg:p-16 shadow-2xl text-center flex flex-col items-center">
         {/* Background Subtle Corporate Glow */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#851428]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#590d1a]/25 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#851428]/25 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#590d1a]/30 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 max-w-3xl space-y-6">
+        <div className="relative z-10 max-w-4xl space-y-6 w-full flex flex-col items-center">
           
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#851428]/25 backdrop-blur-md border border-[#851428]/40 text-rose-200 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-              Mollet Capital Institutional Engine
+              Mollet Capital Shariah Engine
             </div>
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-slate-300 text-xs font-semibold">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> AAOIFI Standard No. 21
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-xs font-semibold border border-emerald-500/30">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> AAOIFI #21 &amp; Zoya / Musaffa Standards
             </div>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] font-sans">
-            Institutional Shariah Screening With <span className="bg-gradient-to-r from-rose-300 via-rose-100 to-white bg-clip-text text-transparent">Business & Financial Precision</span>
+            Instant Shariah Audit &amp; Screening <br />
+            <span className="bg-gradient-to-r from-rose-300 via-rose-100 to-white bg-clip-text text-transparent">
+              For Any Stock on NASDAQ &amp; NYSE
+            </span>
           </h1>
 
-          <p className="text-slate-300 text-base sm:text-lg leading-relaxed font-sans">
-            Mollet Capital Screener evaluates global equities with mandatory two-tier screening: <strong className="text-white font-semibold">Step 1 Primary Business Sector Check</strong> (filtering Conventional Financial Services &amp; Prohibited Goods) followed by <strong className="text-white font-semibold">Step 2 AAOIFI Ratio Audit</strong>.
+          <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-2xl font-sans">
+            Type any stock ticker or company name below. Powered by real-time Yahoo Finance feeds and verified two-tier Islamic finance filters (Zoya, Musaffa, AAOIFI).
           </p>
 
-          {/* Quick Search trigger buttons */}
-          <div className="pt-4 flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">
-              Featured Stock Audits:
+          {/* MAIN CENTERED SEARCH BAR */}
+          <div className="w-full max-w-2xl pt-4 relative" ref={searchContainerRef}>
+            <div className="relative flex items-center shadow-2xl rounded-2xl bg-slate-800/90 backdrop-blur-2xl border-2 border-rose-500/40 focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-500/20 transition-all">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-rose-300" />
+              <input
+                type="text"
+                value={heroSearchQuery}
+                onChange={(e) => setHeroSearchQuery(e.target.value)}
+                onFocus={() => heroSearchQuery.trim() && setShowDropdown(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && heroSearchQuery.trim()) {
+                    handleSelectTicker(heroSearchQuery.trim());
+                  }
+                }}
+                placeholder="Search any stock or company (e.g. Palantir, Google, Apple, NVDA, TSLA, AMD)..."
+                className="w-full pl-13 pr-36 py-4 text-base sm:text-lg bg-transparent text-white placeholder-slate-400 focus:outline-none font-medium"
+              />
+              
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                {isSearching ? (
+                  <div className="w-5 h-5 border-2 border-rose-400 border-t-transparent rounded-full animate-spin mr-2" />
+                ) : null}
+                <button
+                  onClick={() => {
+                    if (heroSearchQuery.trim()) {
+                      handleSelectTicker(heroSearchQuery.trim());
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#851428] to-[#590d1a] hover:from-[#9c1831] hover:to-[#751123] text-white font-bold text-sm transition-all shadow-md flex items-center gap-1.5"
+                >
+                  Audit Stock <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* LIVE AUTOCOMPLETE DROPDOWN */}
+            {showDropdown && (
+              <div className="absolute top-full left-0 right-0 mt-3 bg-slate-900/98 backdrop-blur-2xl border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden z-50 divide-y divide-slate-800 max-h-96 overflow-y-auto text-left">
+                {searchResults.length > 0 ? (
+                  searchResults.map((item) => (
+                    <button
+                      key={item.ticker}
+                      onClick={() => handleSelectTicker(item.ticker)}
+                      className="w-full text-left px-5 py-3.5 flex items-center justify-between hover:bg-[#851428]/25 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold font-mono text-sm text-rose-300 border border-slate-700">
+                          {item.ticker}
+                        </div>
+                        <div>
+                          <div className="font-bold text-white group-hover:text-rose-200 transition-colors flex items-center gap-2">
+                            {item.name}
+                            <span className="text-xs text-slate-400 font-mono">({item.exchange})</span>
+                          </div>
+                          <div className="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">
+                            {item.sector} • {item.industry}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 pl-3">
+                        {item.screening.status === 'COMPLIANT' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Halal Compliant
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/40">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400" /> Non-Compliant
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-6 text-center text-slate-400 text-sm">
+                    Searching live stock exchanges for "<strong className="text-white">{heroSearchQuery}</strong>"...
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs text-slate-400 mt-2 text-center">
+              Supports 8,000+ US &amp; Global Equities (NASDAQ, NYSE, AMEX). Instant live metrics &amp; multi-standard audits.
+            </p>
+          </div>
+
+          {/* Quick Stock Chips */}
+          <div className="pt-4 flex flex-wrap justify-center gap-2 items-center">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+              Popular Stock Audits:
             </span>
             {popularTickers.map((item) => (
               <button
@@ -76,46 +219,33 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
                     ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                     : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/40'
                 }`}
+                title={item.note}
               >
                 <span className="font-mono font-bold">{item.ticker}</span>
-                <span className="text-[10px] opacity-80">({item.sector})</span>
+                <span className="text-[10px] opacity-80">({item.name})</span>
               </button>
             ))}
           </div>
 
-          <div className="pt-6 flex flex-wrap items-center gap-4">
-            <button
-              onClick={() => onExplorePopular('NVDA')}
-              className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#851428] via-[#751123] to-[#590d1a] hover:from-[#9c1831] hover:to-[#751123] text-white font-bold text-sm transition-all shadow-lg shadow-black/30 flex items-center gap-2 border border-white/20"
-            >
-              Analyze NVIDIA (NVDA) <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onExplorePopular('JPM')}
-              className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-semibold text-sm border border-white/15 transition-all flex items-center gap-2"
-            >
-              <ShieldAlert className="w-4 h-4 text-rose-400" /> Test Prohibited Banking (JPM)
-            </button>
-          </div>
         </div>
 
-        {/* Floating Quick Stats Card */}
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 pt-8 border-t border-white/10 dark:border-slate-800/80">
+        {/* Floating Quick Stats */}
+        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 pt-8 border-t border-white/10 w-full">
           <div>
-            <div className="text-2xl font-black text-white font-mono">$3.4T+</div>
-            <div className="text-xs text-slate-400 font-medium">Equities Evaluated</div>
+            <div className="text-2xl font-black text-white font-mono">Live Feed</div>
+            <div className="text-xs text-slate-400 font-medium">Real-time Quotes &amp; SEC Edgar</div>
           </div>
           <div>
             <div className="text-2xl font-black text-rose-300 font-mono">Step 1</div>
-            <div className="text-xs text-slate-400 font-medium">Business Activity Filter</div>
+            <div className="text-xs text-slate-400 font-medium">Defense &amp; Business Activity Filter</div>
           </div>
           <div>
-            <div className="text-2xl font-black text-white font-mono">AAOIFI #21</div>
-            <div className="text-xs text-slate-400 font-medium">Financial Ratio Standards</div>
+            <div className="text-2xl font-black text-white font-mono">Zoya &amp; AAOIFI</div>
+            <div className="text-xs text-slate-400 font-medium">Multi-Methodology Alignment</div>
           </div>
           <div>
-            <div className="text-2xl font-black text-rose-300 font-mono">Instant</div>
-            <div className="text-xs text-slate-400 font-medium">AI Audit Memo Reports</div>
+            <div className="text-2xl font-black text-rose-300 font-mono">Purification</div>
+            <div className="text-xs text-slate-400 font-medium">Dividend Cleansing Engine</div>
           </div>
         </div>
       </section>
@@ -124,10 +254,10 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white font-sans">
-            Strict Two-Tier Shariah Audit Framework
+            Strict Multi-Standard Shariah Audit Framework
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Mollet Capital Screener enforces strict Islamic jurisprudence starting with core business activities before inspecting financial leverage ratios.
+            Enforces strict Islamic jurisprudence starting with core business activities before inspecting financial leverage ratios.
           </p>
         </div>
 
@@ -146,7 +276,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               </span>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Straightforward rejection of Conventional Banking, Interest Brokerage, Insurance, Alcohol, Pork, Gambling, Tobacco, Adult Entertainment, or Offensive Weapons.
+              Straightforward rejection of Conventional Banking, Military Defense Systems (e.g., Palantir), Alcohol, Pork, Gambling, Tobacco, Adult Content, or Offensive Weapons.
             </p>
           </div>
 
@@ -156,10 +286,10 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               <ShieldCheck className="w-6 h-6 text-red-500" />
             </div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              Step 2: Financial Ratio Screening
+              Step 2: Impure Revenue &amp; Ratio Screening
             </h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Strict quantitative evaluation against AAOIFI &amp; MSCI limits: Debt-to-Market Cap (&lt;30%), Interest Cash (&lt;30%), Non-Halal Revenue (&le;5%), Tangible Assets (&ge;20%).
+              Verifies that non-halal ad streams (e.g. Google YouTube ads for loans/gambling) &amp; interest income remain strictly below 5.0%, and interest debt &lt; 30-33%.
             </p>
           </div>
 
@@ -172,7 +302,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               Dividend Purification Engine
             </h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Calculates exact dollar amounts required to cleanse impure interest earnings from dividend distributions according to AAOIFI purification factors.
+              Calculates exact dollar amounts required to cleanse impure interest earnings from dividend distributions according to AAOIFI &amp; Zoya purification factors.
             </p>
           </div>
         </div>
@@ -185,10 +315,10 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             Methodology Architecture
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white font-sans">
-            AAOIFI Standard No. 21 Compliance Rules
+            AAOIFI &amp; Zoya / Musaffa Standards Alignment
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            The Accounting and Auditing Organization for Islamic Financial Institutions (AAOIFI) mandates that equity investment screening must begin with primary business activity qualification before examining debt and cash leverage ratios.
+            The Accounting and Auditing Organization for Islamic Financial Institutions (AAOIFI) and contemporary Islamic screeners (Zoya &amp; Musaffa) mandate that equity investment screening must begin with primary business activity qualification before examining debt and cash leverage ratios.
           </p>
           <div className="pt-2">
             <button
@@ -206,8 +336,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               1
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Primary Business Activity Check</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Companies in Riba banking, conventional insurance, alcohol, pork, gambling, tobacco, adult content or offensive weapons fail straightaway.</p>
+              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Primary Business Sector Check</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Companies in Riba banking, defense contracting &amp; military surveillance (e.g. Palantir), alcohol, pork, gambling, or adult content fail straightaway.</p>
             </div>
           </div>
 
@@ -216,8 +346,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               2
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Debt &amp; Cash Ratio Verification</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Interest-bearing debt and interest-earning deposits must each remain below 30% of market capitalization (AAOIFI).</p>
+              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Impure Revenue Audit (&le; 5%)</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Non-halal ad streams (Google YouTube ad networks for interest loans) plus interest income must remain below 5% of revenue.</p>
             </div>
           </div>
 
@@ -226,8 +356,8 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               3
             </div>
             <div>
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Non-Halal Revenue Purification</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Impure revenue must be &le; 5.0% of total revenue. Any impure fraction must be cleansed through charitable donations.</p>
+              <h4 className="font-bold text-sm text-slate-900 dark:text-white">Debt &amp; Cash Ratio Verification</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Interest-bearing debt and interest-earning deposits must remain below 30% (AAOIFI) or 33% (Zoya / DJIM) of market capitalization.</p>
             </div>
           </div>
         </div>

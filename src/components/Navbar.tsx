@@ -242,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             
             {/* Standard Selector */}
             <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-              {(['AAOIFI', 'MSCI', 'SP', 'DJ'] as ShariahStandard[]).map((st) => (
+              {(['AAOIFI', 'ZOYA_MUSAFFA', 'MSCI', 'DJ'] as ShariahStandard[]).map((st) => (
                 <button
                   key={st}
                   onClick={() => setStandard(st)}
@@ -252,7 +252,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {st}
+                  {st === 'ZOYA_MUSAFFA' ? 'Zoya / Musaffa' : st}
                 </button>
               ))}
             </div>

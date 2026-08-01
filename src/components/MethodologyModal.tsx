@@ -42,6 +42,18 @@ export const MethodologyModal: React.FC<MethodologyModalProps> = ({
       desc: 'The most widely recognized international Islamic financial standard. Uses market cap to calculate debt and liquidity ratios.'
     },
     {
+      id: 'ZOYA_MUSAFFA' as ShariahStandard,
+      name: 'Zoya & Musaffa Strict Standard',
+      org: 'Zoya & Musaffa Consumer Shariah Screening Board',
+      denominator: 'Market Capitalization / Total Assets',
+      debtLimit: '33.0%',
+      cashLimit: '33.0%',
+      impureLimit: '5.0%',
+      tangibleLimit: '20.0%',
+      badge: 'Strict Retail Filter',
+      desc: 'Enforces strict primary business sector checks (excluding defense/military surveillance contracts, weapons software, gambling/loan ad networks) plus a 5% max impure income cap.'
+    },
+    {
       id: 'MSCI' as ShariahStandard,
       name: 'MSCI Islamic Index Criteria',
       org: 'MSCI Barra Islamic Index Series',

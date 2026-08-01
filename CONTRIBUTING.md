@@ -1,4 +1,4 @@
-# Contributing to Mollet Capital Screening
+# Contributing to NoorScreen
 
 Thank you for your interest in contributing to NoorScreen!
 

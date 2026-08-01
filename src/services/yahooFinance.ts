@@ -98,13 +98,31 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
       totalAssets = totalDebt + marketCap * 0.2;
     }
 
-    // Determine impure revenue based on industry keywords (non-operating interest usually 0.5% - 1.5% for corporate cash)
-    const isFinancial = sector.toLowerCase().includes('bank') || 
-                        sector.toLowerCase().includes('financial') || 
-                        industry.toLowerCase().includes('bank') || 
-                        industry.toLowerCase().includes('insurance');
+    // Determine impure revenue based on industry keywords & business activities
+    const lowerSector = sector.toLowerCase();
+    const lowerInd = industry.toLowerCase();
+    const lowerDesc = description.toLowerCase();
 
-    const impureRatio = isFinancial ? 0.85 : 0.01; // Financials fail Step 1 anyway
+    const isFinancial = lowerSector.includes('bank') || 
+                        lowerSector.includes('financial') || 
+                        lowerInd.includes('bank') || 
+                        lowerInd.includes('insurance');
+
+    const isDefense = lowerSector.includes('defense') || 
+                      lowerInd.includes('defense') || 
+                      lowerSector.includes('military') || 
+                      lowerDesc.includes('defense contracting') ||
+                      lowerDesc.includes('military intelligence');
+
+    let impureRatio = 0.01;
+    if (isFinancial) {
+      impureRatio = 0.85;
+    } else if (isDefense) {
+      impureRatio = 0.08; // > 5% limit
+    } else if (ticker === 'GOOGL' || ticker === 'GOOG' || lowerDesc.includes('search engine') || lowerDesc.includes('youtube')) {
+      impureRatio = 0.0546; // 5.46% (YouTube/AdSense non-compliant ads + interest)
+    }
+
     const impureRevenue = totalRevenue * impureRatio;
     const tangibleAssets = totalAssets * 0.70;
 
@@ -164,4 +182,37 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
     console.warn(`Failed to fetch live Yahoo Finance data for ${ticker}:`, err);
     return null;
   }
+}
+
+/**
+ * Searches Yahoo Finance for ANY NASDAQ, NYSE, or global equity symbol in real-time.
+ */
+export async function searchYahooTickers(query: string): Promise<Array<{ ticker: string; name: string; exchange: string; sector?: string }>> {
+  const q = query.trim();
+  if (!q || q.length < 1) return [];
+
+  try {
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const quotes = data?.quotes || [];
+      return quotes
+        .filter((item: any) => (item.quoteType === 'EQUITY' || item.quoteType === 'ETF') && item.symbol)
+        .map((item: any) => ({
+          ticker: item.symbol,
+          name: item.longname || item.shortname || item.symbol,
+          exchange: item.exchDisp || item.exchange || 'NASDAQ/NYSE',
+          sector: item.sector || item.industryDisp || 'Public Equity'
+        }));
+    }
+  } catch (err) {
+    console.warn('Yahoo Finance search API error:', err);
+  }
+  return [];
 }
