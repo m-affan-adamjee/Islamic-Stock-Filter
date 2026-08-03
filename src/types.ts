@@ -1,4 +1,4 @@
-export type ShariahStandard = 'AAOIFI' | 'ZOYA_MUSAFFA' | 'MSCI' | 'SP' | 'DJ' | 'CUSTOM';
+export type ShariahStandard = 'AAOIFI' | 'STRICT_RETAIL' | 'MSCI' | 'SP' | 'DJ' | 'CUSTOM';
 
 export type ComplianceStatus = 'COMPLIANT' | 'NON_COMPLIANT';
 
@@ -45,6 +45,18 @@ export interface ScreeningResult {
     maxImpure: number;
     minTangible: number;
   };
+  isEtf?: boolean;
+  isHalalEtf?: boolean;
+  etfNotice?: string;
+  crossScreenerConsensus?: {
+    aaoifiStatus: ComplianceStatus;
+    zoyaStatus: ComplianceStatus;
+    islamiclyStatus: ComplianceStatus;
+    spShariahStatus: ComplianceStatus;
+    msciIslamicStatus: ComplianceStatus;
+    consensusSummary: string;
+  };
+  halalAlternatives?: Array<{ ticker: string; name: string; indexTracked: string }>;
 }
 
 export interface CompanyProfile {
@@ -72,6 +84,10 @@ export interface CompanyProfile {
   netIncome: number;
   totalRevenue: number;
   sharesOutstanding: number;
+  isEtf?: boolean;
+  isHalalEtf?: boolean;
+  etfType?: 'HALAL_ETF' | 'CONVENTIONAL_ETF' | 'NONE';
+  halalAlternatives?: Array<{ ticker: string; name: string; indexTracked: string }>;
   shariahMetrics: ShariahMetrics;
   screening: ScreeningResult;
   dataSources?: {

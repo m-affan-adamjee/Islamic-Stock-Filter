@@ -35,7 +35,7 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
     const week52High = meta.fiftyTwoWeekHigh || price * 1.2;
     const week52Low = meta.fiftyTwoWeekLow || price * 0.8;
 
-    // Try fetching detailed summary / balance sheet / financials modules
+    // Try fetching detailed summary / balance sheet / financials modules & quote endpoint
     let sector = "Technology & Services";
     let industry = "General Enterprise";
     let description = `${name} is a publicly traded company on the ${exchange} (${ticker}).`;
@@ -47,6 +47,31 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
     let totalCash = marketCap * 0.12;
     let totalAssets = marketCap * 0.50;
     let peRatio = 22.5;
+    let netIncome: number | undefined;
+    let sharesOutstanding: number | undefined;
+
+    try {
+      const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(ticker)}`;
+      const qRes = await fetch(quoteUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      if (qRes.ok) {
+        const qData = await qRes.json();
+        const qQuote = qData?.quoteResponse?.result?.[0];
+        if (qQuote) {
+          if (qQuote.marketCap) marketCap = qQuote.marketCap;
+          if (qQuote.sharesOutstanding) sharesOutstanding = qQuote.sharesOutstanding;
+          if (qQuote.trailingPE || qQuote.forwardPE) peRatio = qQuote.trailingPE || qQuote.forwardPE;
+          if (qQuote.epsTrailingTwelveMonths && qQuote.sharesOutstanding) {
+            netIncome = qQuote.epsTrailingTwelveMonths * qQuote.sharesOutstanding;
+          }
+        }
+      }
+    } catch {
+      // Ignore quote endpoint fallback error
+    }
 
     try {
       const summaryUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=assetProfile,summaryDetail,financialData,defaultKeyStatistics`;
@@ -75,17 +100,23 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
             if (fin.totalRevenue?.raw) totalRevenue = fin.totalRevenue.raw;
             if (fin.totalDebt?.raw) totalDebt = fin.totalDebt.raw;
             if (fin.totalCash?.raw) totalCash = fin.totalCash.raw;
+            if (fin.profitMargins?.raw && totalRevenue) {
+              netIncome = totalRevenue * fin.profitMargins.raw;
+            }
           }
 
           const stats = quoteSummary.defaultKeyStatistics;
           if (stats) {
             if (stats.marketCap?.raw) marketCap = stats.marketCap.raw;
-            if (stats.forwardPE?.raw) peRatio = stats.forwardPE.raw;
+            if (stats.forwardPE?.raw || stats.trailingPE?.raw) peRatio = stats.forwardPE?.raw || stats.trailingPE?.raw || peRatio;
+            if (stats.netIncomeToCommon?.raw) netIncome = stats.netIncomeToCommon.raw;
+            if (stats.sharesOutstanding?.raw) sharesOutstanding = stats.sharesOutstanding.raw;
           }
 
           const detail = quoteSummary.summaryDetail;
-          if (detail && detail.marketCap?.raw) {
-            marketCap = detail.marketCap.raw;
+          if (detail) {
+            if (detail.marketCap?.raw) marketCap = detail.marketCap.raw;
+            if (detail.trailingPE?.raw || detail.forwardPE?.raw) peRatio = detail.trailingPE?.raw || detail.forwardPE?.raw || peRatio;
           }
         }
       }
@@ -114,11 +145,24 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
                       lowerDesc.includes('defense contracting') ||
                       lowerDesc.includes('military intelligence');
 
+    const isEntertainment = lowerSector.includes('entertainment') || 
+                            lowerSector.includes('media') || 
+                            lowerInd.includes('entertainment') || 
+                            lowerInd.includes('broadcasting') || 
+                            lowerInd.includes('music') || 
+                            lowerInd.includes('movie') || 
+                            lowerInd.includes('film') || 
+                            lowerDesc.includes('motion picture') || 
+                            lowerDesc.includes('tv series') || 
+                            lowerDesc.includes('theme park');
+
     let impureRatio = 0.01;
     if (isFinancial) {
       impureRatio = 0.85;
     } else if (isDefense) {
-      impureRatio = 0.08; // > 5% limit
+      impureRatio = 0.15; // > 5% limit
+    } else if (isEntertainment) {
+      impureRatio = 0.80; // > 5% non-compliant media revenue
     } else if (ticker === 'GOOGL' || ticker === 'GOOG' || lowerDesc.includes('search engine') || lowerDesc.includes('youtube')) {
       impureRatio = 0.0546; // 5.46% (YouTube/AdSense non-compliant ads + interest)
     }
@@ -165,9 +209,9 @@ export async function fetchLiveYahooStock(tickerSymbol: string): Promise<Company
       week52High,
       week52Low,
       divYield: 0.5,
-      netIncome: totalRevenue * 0.15,
+      netIncome: netIncome !== undefined ? netIncome : totalRevenue * 0.15,
       totalRevenue,
-      sharesOutstanding: marketCap / (price || 1),
+      sharesOutstanding: sharesOutstanding || (marketCap / (price || 1)),
       shariahMetrics,
       screening,
       dataSources: {

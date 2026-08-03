@@ -10,10 +10,12 @@ import {
   Moon, 
   CheckCircle2, 
   XCircle,
-  TrendingUp
+  TrendingUp,
+  Database
 } from 'lucide-react';
 import { CompanyProfile, ShariahStandard } from '../types';
 import { MolletLogo } from './MolletLogo';
+import { STOCK_DATABASE } from '../data/mockDatabase';
 
 interface NavbarProps {
   activeTab: string;
@@ -43,6 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const clientSearchCache = useRef<Map<string, CompanyProfile[]>>(new Map());
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,27 +58,64 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    const trimmed = searchQuery.trim().toLowerCase();
+    if (!trimmed) {
       setSearchResults([]);
       setShowDropdown(false);
       return;
     }
 
+    // 1. Instant local filter for 0ms immediate responsiveness
+    const localMatches = Object.values(STOCK_DATABASE).filter(c =>
+      c.ticker.toLowerCase().startsWith(trimmed) ||
+      c.name.toLowerCase().includes(trimmed) ||
+      c.ticker.toLowerCase().includes(trimmed)
+    ).slice(0, 10);
+
+    if (localMatches.length > 0) {
+      setSearchResults(localMatches);
+      setShowDropdown(true);
+    }
+
+    // 2. Check client cache
+    if (clientSearchCache.current.has(trimmed)) {
+      setSearchResults(clientSearchCache.current.get(trimmed)!);
+      setShowDropdown(true);
+      setIsSearching(false);
+      return;
+    }
+
+    // 3. Debounced API fetch with AbortController
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
-        const data = await res.json();
-        setSearchResults(data);
-        setShowDropdown(true);
-      } catch (err) {
-        console.error('Search error:', err);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            clientSearchCache.current.set(trimmed, data);
+            setSearchResults(data);
+            setShowDropdown(true);
+          }
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Search error:', err);
+        }
       } finally {
-        setIsSearching(false);
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
       }
-    }, 200);
+    }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery]);
 
   const handleSelect = (ticker: string) => {
@@ -196,6 +236,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               <TrendingUp className="w-4 h-4" /> Dashboard
             </button>
             <button
+              onClick={() => setActiveTab('universe')}
+              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'universe'
+                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
+              }`}
+            >
+              <Database className="w-4 h-4" /> Stock Universe
+            </button>
+            <button
               onClick={() => setActiveTab('compare')}
               className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
                 activeTab === 'compare'
@@ -242,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             
             {/* Standard Selector */}
             <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-              {(['AAOIFI', 'ZOYA_MUSAFFA', 'MSCI', 'DJ'] as ShariahStandard[]).map((st) => (
+              {(['AAOIFI', 'STRICT_RETAIL', 'MSCI', 'DJ'] as ShariahStandard[]).map((st) => (
                 <button
                   key={st}
                   onClick={() => setStandard(st)}
@@ -252,7 +302,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {st === 'ZOYA_MUSAFFA' ? 'Zoya / Musaffa' : st}
+                  {st === 'STRICT_RETAIL' ? 'Strict Retail' : st}
                 </button>
               ))}
             </div>

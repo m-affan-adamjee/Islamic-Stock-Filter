@@ -9,6 +9,7 @@ import { DividendPurificationCalculator } from './components/DividendPurificatio
 import { CompanyOverview } from './components/CompanyOverview';
 import { MethodologyModal } from './components/MethodologyModal';
 import { StockComparison } from './components/StockComparison';
+import { UniverseDirectory } from './components/UniverseDirectory';
 import { ExportModal } from './components/ExportModal';
 import { ApiDocsView } from './components/ApiDocsView';
 import { WatchlistDrawer } from './components/WatchlistDrawer';
@@ -266,7 +267,15 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 3: Compare View */}
+        {/* Tab 3: Stock Universe View */}
+        {activeTab === 'universe' && (
+          <UniverseDirectory
+            currentStandard={standard}
+            onSelectCompany={handleSelectCompany}
+          />
+        )}
+
+        {/* Tab 4: Compare View */}
         {activeTab === 'compare' && (
           <StockComparison
             initialTickers={['NVDA', 'AAPL', 'MSFT', 'JPM']}

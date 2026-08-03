@@ -13,6 +13,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { CompanyProfile } from '../types';
+import { STOCK_DATABASE } from '../data/mockDatabase';
 
 interface LandingHeroProps {
   onSearch: (ticker: string) => void;
@@ -30,6 +31,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const heroClientCache = useRef<Map<string, CompanyProfile[]>>(new Map());
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -44,29 +46,65 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
 
   // Live real-time search trigger
   useEffect(() => {
-    if (!heroSearchQuery.trim()) {
+    const trimmed = heroSearchQuery.trim().toLowerCase();
+    if (!trimmed) {
       setSearchResults([]);
       setShowDropdown(false);
       return;
     }
 
+    // 1. Instant local filter for 0ms immediate feedback
+    const localMatches = Object.values(STOCK_DATABASE).filter(c =>
+      c.ticker.toLowerCase().startsWith(trimmed) ||
+      c.name.toLowerCase().includes(trimmed) ||
+      c.ticker.toLowerCase().includes(trimmed)
+    ).slice(0, 10);
+
+    if (localMatches.length > 0) {
+      setSearchResults(localMatches);
+      setShowDropdown(true);
+    }
+
+    // 2. Client cache check
+    if (heroClientCache.current.has(trimmed)) {
+      setSearchResults(heroClientCache.current.get(trimmed)!);
+      setShowDropdown(true);
+      setIsSearching(false);
+      return;
+    }
+
+    // 3. Debounced API fetch with AbortController
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(heroSearchQuery)}`);
-        if (res.ok) {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
-          setSearchResults(data);
-          setShowDropdown(true);
+          if (Array.isArray(data)) {
+            heroClientCache.current.set(trimmed, data);
+            setSearchResults(data);
+            setShowDropdown(true);
+          }
         }
-      } catch (err) {
-        console.error('Hero live search error:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Hero live search error:', err);
+        }
       } finally {
-        setIsSearching(false);
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
       }
-    }, 150);
+    }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [heroSearchQuery]);
 
   const handleSelectTicker = (ticker: string) => {
@@ -79,12 +117,13 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
     { ticker: 'NVDA', name: 'NVIDIA', status: 'COMPLIANT', note: 'Halal (Semiconductors)' },
     { ticker: 'PLTR', name: 'Palantir', status: 'NON_COMPLIANT', note: 'Non-Halal (Defense Systems)' },
     { ticker: 'GOOGL', name: 'Alphabet / Google', status: 'NON_COMPLIANT', note: 'Non-Halal (Impure Ads > 5%)' },
+    { ticker: 'DIS', name: 'Disney', status: 'NON_COMPLIANT', note: 'Non-Halal (Media & Entertainment)' },
+    { ticker: 'NFLX', name: 'Netflix', status: 'NON_COMPLIANT', note: 'Non-Halal (Media & Streaming)' },
     { ticker: 'AAPL', name: 'Apple', status: 'COMPLIANT', note: 'Halal (Hardware & Services)' },
     { ticker: 'MSFT', name: 'Microsoft', status: 'COMPLIANT', note: 'Halal (Enterprise Software)' },
     { ticker: 'TSLA', name: 'Tesla', status: 'COMPLIANT', note: 'Halal (Clean Vehicles)' },
     { ticker: 'JPM', name: 'JPMorgan', status: 'NON_COMPLIANT', note: 'Non-Halal (Riba Banking)' },
-    { ticker: 'AMD', name: 'AMD', status: 'COMPLIANT', note: 'Halal (Processors)' },
-    { ticker: 'DIS', name: 'Disney', status: 'NON_COMPLIANT', note: 'Non-Halal (Entertainment)' }
+    { ticker: 'AMD', name: 'AMD', status: 'COMPLIANT', note: 'Halal (Processors)' }
   ];
 
   return (
@@ -104,7 +143,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               Mollet Capital Shariah Engine
             </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-xs font-semibold border border-emerald-500/30">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> AAOIFI #21 &amp; Zoya / Musaffa Standards
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> AAOIFI #21 &amp; Strict Consumer Standards
             </div>
           </div>
 
@@ -116,7 +155,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
           </h1>
 
           <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-2xl font-sans">
-            Type any stock ticker or company name below. Powered by real-time Yahoo Finance feeds and verified two-tier Islamic finance filters (Zoya, Musaffa, AAOIFI).
+            Type any stock ticker or company name below. Powered by live Google Finance &amp; Yahoo Finance real-time feeds with verified two-tier Islamic finance filters.
           </p>
 
           {/* MAIN CENTERED SEARCH BAR */}
@@ -240,7 +279,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             <div className="text-xs text-slate-400 font-medium">Defense &amp; Business Activity Filter</div>
           </div>
           <div>
-            <div className="text-2xl font-black text-white font-mono">Zoya &amp; AAOIFI</div>
+            <div className="text-2xl font-black text-white font-mono">AAOIFI &amp; Strict</div>
             <div className="text-xs text-slate-400 font-medium">Multi-Methodology Alignment</div>
           </div>
           <div>
@@ -302,7 +341,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
               Dividend Purification Engine
             </h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              Calculates exact dollar amounts required to cleanse impure interest earnings from dividend distributions according to AAOIFI &amp; Zoya purification factors.
+              Calculates exact dollar amounts required to cleanse impure interest earnings from dividend distributions according to standard AAOIFI purification factors.
             </p>
           </div>
         </div>
@@ -315,10 +354,10 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             Methodology Architecture
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white font-sans">
-            AAOIFI &amp; Zoya / Musaffa Standards Alignment
+            AAOIFI &amp; Strict Consumer Standards Alignment
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            The Accounting and Auditing Organization for Islamic Financial Institutions (AAOIFI) and contemporary Islamic screeners (Zoya &amp; Musaffa) mandate that equity investment screening must begin with primary business activity qualification before examining debt and cash leverage ratios.
+            The Accounting and Auditing Organization for Islamic Financial Institutions (AAOIFI) and contemporary Islamic screeners mandate that equity investment screening must begin with primary business activity qualification before examining debt and cash leverage ratios.
           </p>
           <div className="pt-2">
             <button
@@ -357,7 +396,7 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">Debt &amp; Cash Ratio Verification</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Interest-bearing debt and interest-earning deposits must remain below 30% (AAOIFI) or 33% (Zoya / DJIM) of market capitalization.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Interest-bearing debt and interest-earning deposits must remain below 30% (AAOIFI) or 33% (DJIM/Strict Consumer) of market capitalization.</p>
             </div>
           </div>
         </div>

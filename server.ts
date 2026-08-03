@@ -83,51 +83,86 @@ async function startServer() {
     });
   });
 
-  // 2. Universal Search endpoint for ALL NASDAQ & NYSE equities
+  // Server-side fast query cache
+  const serverSearchCache = new Map<string, { timestamp: number; data: CompanyProfile[] }>();
+
+  // 2. Universal Search endpoint for ALL NASDAQ & NYSE equities (Ultra-Fast Response)
   app.get('/api/search', async (req, res) => {
-    const q = (req.query.q as string || '').toLowerCase().trim();
-    if (!q) {
+    try {
+      const rawQ = (req.query.q as string || '').trim();
+      const q = rawQ.toLowerCase();
+      if (!q) {
+        return res.json([]);
+      }
+
+      // Check server cache (valid for 5 minutes)
+      const cached = serverSearchCache.get(q);
+      if (cached && Date.now() - cached.timestamp < 300000) {
+        return res.json(cached.data);
+      }
+
+      const resolved = resolveTickerAlias(q);
+      const matchesMap = new Map<string, CompanyProfile>();
+
+      // Rank matching: Exact ticker > Ticker startsWith > Ticker includes > Name includes
+      const dbEntries = Object.values(STOCK_DATABASE);
+
+      // 1. Local Database instant matches
+      dbEntries.forEach(c => {
+        const tLower = c.ticker.toLowerCase();
+        const nLower = c.name.toLowerCase();
+        if (
+          tLower === q ||
+          tLower === resolved.toLowerCase() ||
+          tLower.startsWith(q) ||
+          nLower.includes(q) ||
+          tLower.includes(q)
+        ) {
+          matchesMap.set(c.ticker, c);
+        }
+      });
+
+      // 2. Query live Yahoo Finance search API for any NASDAQ / NYSE stock symbol (Fast Autocomplete)
+      if (q.length >= 1) {
+        try {
+          const liveHits = await searchYahooTickers(q);
+          for (const hit of liveHits) {
+            const hitTickerUpper = hit.ticker.toUpperCase();
+            if (!matchesMap.has(hitTickerUpper)) {
+              // If already cached in database, use it
+              if (STOCK_DATABASE[hitTickerUpper]) {
+                matchesMap.set(hitTickerUpper, STOCK_DATABASE[hitTickerUpper]);
+              } else {
+                // Generate instant lightweight profile for preview without blocking on 50 HTTP calls
+                const fastProfile = generateDynamicProfile(hitTickerUpper, hit.name, hit.sector);
+                matchesMap.set(hitTickerUpper, fastProfile);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Live search feed fallback warning:', err);
+        }
+      }
+
+      // Sort results by relevance: exact match first, then ticker starts with, then ticker includes
+      const sortedResults = Array.from(matchesMap.values()).sort((a, b) => {
+        const aT = a.ticker.toLowerCase();
+        const bT = b.ticker.toLowerCase();
+        if (aT === q) return -1;
+        if (bT === q) return 1;
+        if (aT.startsWith(q) && !bT.startsWith(q)) return -1;
+        if (bT.startsWith(q) && !aT.startsWith(q)) return 1;
+        return aT.localeCompare(bT);
+      }).slice(0, 10);
+
+      // Save to server cache
+      serverSearchCache.set(q, { timestamp: Date.now(), data: sortedResults });
+
+      return res.json(sortedResults);
+    } catch (routeErr) {
+      console.error('API /api/search error:', routeErr);
       return res.json([]);
     }
-
-    const resolved = resolveTickerAlias(q);
-    const matchesMap = new Map<string, CompanyProfile>();
-
-    // 1. Search existing local database snapshots
-    Object.values(STOCK_DATABASE).forEach(c => {
-      if (
-        c.ticker.toLowerCase().includes(q) ||
-        c.ticker.toLowerCase() === resolved.toLowerCase() ||
-        c.name.toLowerCase().includes(q)
-      ) {
-        matchesMap.set(c.ticker, c);
-      }
-    });
-
-    // 2. Query live Yahoo Finance search API for any NASDAQ / NYSE stock symbol
-    if (q.length >= 1) {
-      try {
-        const liveHits = await searchYahooTickers(q);
-        for (const hit of liveHits) {
-          if (!matchesMap.has(hit.ticker)) {
-            // Fetch live validated company profile for matched quote
-            const liveProfile = await resolveAndFetchCompany(hit.ticker);
-            matchesMap.set(hit.ticker, liveProfile);
-          }
-        }
-      } catch (err) {
-        console.warn('Live search feed fallback warning:', err);
-      }
-    }
-
-    // 3. Direct lookup fallback
-    if (matchesMap.size === 0 && q.length >= 2) {
-      const direct = await resolveAndFetchCompany(q);
-      matchesMap.set(direct.ticker, direct);
-    }
-
-    const results = Array.from(matchesMap.values());
-    res.json(results.slice(0, 10));
   });
 
   // 3. Featured / Popular compliant stocks
@@ -147,6 +182,8 @@ async function startServer() {
 
     const screening = runShariahScreening(
       {
+        ticker: profile.ticker,
+        name: profile.name,
         sector: profile.sector,
         industry: profile.industry,
         description: profile.description,
@@ -173,6 +210,8 @@ async function startServer() {
 
     const result = runShariahScreening(
       {
+        ticker: profile.ticker,
+        name: profile.name,
         sector: profile.sector,
         industry: profile.industry,
         description: profile.description,
@@ -214,6 +253,8 @@ async function startServer() {
 
     const screening = runShariahScreening(
       {
+        ticker: profile.ticker,
+        name: profile.name,
         sector: profile.sector,
         industry: profile.industry,
         description: profile.description,
@@ -242,7 +283,7 @@ async function startServer() {
     const results = await Promise.all(tickers.map(async t => {
       const prof = await resolveAndFetchCompany(t);
       const scr = runShariahScreening(
-        { sector: prof.sector, industry: prof.industry, description: prof.description, ...prof.shariahMetrics },
+        { ticker: prof.ticker, name: prof.name, sector: prof.sector, industry: prof.industry, description: prof.description, ...prof.shariahMetrics },
         standard
       );
       return {
@@ -264,6 +305,108 @@ async function startServer() {
     res.json(results);
   });
 
+  // 9b. Complete Covered Universe Audit Matrix Across All Standards
+  app.get('/api/universe/audit', async (req, res) => {
+    try {
+      const tickers = Object.keys(STOCK_DATABASE);
+      const standards: ShariahStandard[] = ['AAOIFI', 'STRICT_RETAIL', 'MSCI', 'SP', 'DJ'];
+
+      const fullAudit = await Promise.all(
+        tickers.map(async (ticker) => {
+          const profile = await resolveAndFetchCompany(ticker);
+          const standardsAudit: Record<string, any> = {};
+
+          standards.forEach((st) => {
+            standardsAudit[st] = runShariahScreening(
+              {
+                ticker: profile.ticker,
+                name: profile.name,
+                sector: profile.sector,
+                industry: profile.industry,
+                description: profile.description,
+                ...profile.shariahMetrics
+              },
+              st
+            );
+          });
+
+          return {
+            ticker: profile.ticker,
+            name: profile.name,
+            sector: profile.sector,
+            industry: profile.industry,
+            exchange: profile.exchange,
+            price: profile.price,
+            marketCap: profile.marketCap,
+            totalRevenue: profile.totalRevenue,
+            shariahMetrics: profile.shariahMetrics,
+            dataSources: profile.dataSources,
+            standardsAudit
+          };
+        })
+      );
+
+      res.json({
+        totalCoverageCount: fullAudit.length,
+        auditTimestamp: new Date().toISOString(),
+        auditedStocks: fullAudit
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to compute universe audit matrix', details: String(err) });
+    }
+  });
+
+  // 9c. Dynamically Audit and Add ANY NASDAQ / NYSE Ticker to Universe Matrix
+  app.post('/api/universe/add-ticker', async (req, res) => {
+    try {
+      const { ticker: rawTicker } = req.body;
+      if (!rawTicker || typeof rawTicker !== 'string') {
+        return res.status(400).json({ error: 'Valid ticker symbol is required' });
+      }
+
+      const ticker = rawTicker.trim().toUpperCase();
+      // Execute multi-source live cross-validation across Google Finance + Yahoo Finance + SEC
+      const validation = await getCrossValidatedCompanyProfile(ticker);
+      const profile = validation.verifiedProfile;
+
+      const standards: ShariahStandard[] = ['AAOIFI', 'STRICT_RETAIL', 'MSCI', 'SP', 'DJ'];
+      const standardsAudit: Record<string, any> = {};
+
+      standards.forEach((st) => {
+        standardsAudit[st] = runShariahScreening(
+          {
+            ticker: profile.ticker,
+            name: profile.name,
+            sector: profile.sector,
+            industry: profile.industry,
+            description: profile.description,
+            ...profile.shariahMetrics
+          },
+          st
+        );
+      });
+
+      res.json({
+        success: true,
+        auditedStock: {
+          ticker: profile.ticker,
+          name: profile.name,
+          sector: profile.sector,
+          industry: profile.industry,
+          exchange: profile.exchange,
+          price: profile.price,
+          marketCap: profile.marketCap,
+          totalRevenue: profile.totalRevenue,
+          shariahMetrics: profile.shariahMetrics,
+          dataSources: profile.dataSources,
+          standardsAudit
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to cross-validate ticker', details: String(err) });
+    }
+  });
+
   // 10. AI Shariah Audit Memo Generation via Gemini
   app.post('/api/ai/analyze', async (req, res) => {
     const { ticker: rawTicker, standard = 'AAOIFI' } = req.body;
@@ -273,7 +416,7 @@ async function startServer() {
 
     const company = await resolveAndFetchCompany(rawTicker);
     const screening = runShariahScreening(
-      { sector: company.sector, industry: company.industry, description: company.description, ...company.shariahMetrics },
+      { ticker: company.ticker, name: company.name, sector: company.sector, industry: company.industry, description: company.description, ...company.shariahMetrics },
       standard as ShariahStandard
     );
 
