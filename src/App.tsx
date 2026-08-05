@@ -13,6 +13,8 @@ import { UniverseDirectory } from './components/UniverseDirectory';
 import { ExportModal } from './components/ExportModal';
 import { ApiDocsView } from './components/ApiDocsView';
 import { WatchlistDrawer } from './components/WatchlistDrawer';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileQuickSearchModal } from './components/MobileQuickSearchModal';
 import { Footer } from './components/Footer';
 import { CompanyProfile, ShariahStandard, WatchlistItem, CustomThresholds } from './types';
 import { STOCK_DATABASE, runShariahScreening, generateDynamicProfile, resolveTickerAlias } from './data/mockDatabase';
@@ -37,6 +39,7 @@ export default function App() {
   });
   const [isWatchlistOpen, setIsWatchlistOpen] = useState<boolean>(false);
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [showAIAuditSection, setShowAIAuditSection] = useState<boolean>(false);
 
   // Sync dark mode class on <html>
@@ -135,10 +138,11 @@ export default function App() {
         openWatchlist={() => setIsWatchlistOpen(true)}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
+        openSearch={() => setIsSearchOpen(true)}
       />
 
-      {/* Main Content Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Main Content Body (pb-24 for mobile bottom nav space) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24 md:pb-8 space-y-6 sm:space-y-8">
         
         {/* Tab 1: Landing Page */}
         {activeTab === 'landing' && (
@@ -320,6 +324,22 @@ export default function App() {
         items={watchlist}
         onRemove={(ticker) => setWatchlist(watchlist.filter(w => w.ticker !== ticker))}
         onSelect={handleSelectCompany}
+      />
+
+      {/* Mobile Quick Search Modal */}
+      <MobileQuickSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onSelectCompany={handleSelectCompany}
+      />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        openSearch={() => setIsSearchOpen(true)}
+        openWatchlist={() => setIsWatchlistOpen(true)}
+        watchlistCount={watchlist.length}
       />
 
       {/* Footer */}

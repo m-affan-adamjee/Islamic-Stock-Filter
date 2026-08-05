@@ -1,21 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Search, 
+  Home,
   BarChart2, 
   Calculator, 
   BookOpen, 
-  Code, 
   Bookmark, 
   Sun, 
   Moon, 
-  CheckCircle2, 
-  XCircle,
   TrendingUp,
-  Database
+  Database,
+  ChevronDown,
+  Menu,
+  X,
+  Layers,
+  ShieldCheck,
+  Search
 } from 'lucide-react';
-import { CompanyProfile, ShariahStandard } from '../types';
+import { ShariahStandard } from '../types';
 import { MolletLogo } from './MolletLogo';
-import { STOCK_DATABASE } from '../data/mockDatabase';
 
 interface NavbarProps {
   activeTab: string;
@@ -27,271 +29,227 @@ interface NavbarProps {
   openWatchlist: () => void;
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
+  openSearch?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
-  onSelectCompany,
   standard,
   setStandard,
   watchlistCount,
   openWatchlist,
   darkMode,
-  setDarkMode
+  setDarkMode,
+  openSearch
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CompanyProfile[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const clientSearchCache = useRef<Map<string, CompanyProfile[]>>(new Map());
+  const [screenerOpen, setScreenerOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const screenerRef = useRef<HTMLDivElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
+      if (screenerRef.current && !screenerRef.current.contains(event.target as Node)) {
+        setScreenerOpen(false);
+      }
+      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+        setToolsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const trimmed = searchQuery.trim().toLowerCase();
-    if (!trimmed) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
+  const isScreenerActive = ['dashboard', 'universe', 'compare'].includes(activeTab);
+  const isToolsActive = ['purification', 'methodology'].includes(activeTab);
 
-    // 1. Instant local filter for 0ms immediate responsiveness
-    const localMatches = Object.values(STOCK_DATABASE).filter(c =>
-      c.ticker.toLowerCase().startsWith(trimmed) ||
-      c.name.toLowerCase().includes(trimmed) ||
-      c.ticker.toLowerCase().includes(trimmed)
-    ).slice(0, 10);
-
-    if (localMatches.length > 0) {
-      setSearchResults(localMatches);
-      setShowDropdown(true);
-    }
-
-    // 2. Check client cache
-    if (clientSearchCache.current.has(trimmed)) {
-      setSearchResults(clientSearchCache.current.get(trimmed)!);
-      setShowDropdown(true);
-      setIsSearching(false);
-      return;
-    }
-
-    // 3. Debounced API fetch with AbortController
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
-          signal: controller.signal
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            clientSearchCache.current.set(trimmed, data);
-            setSearchResults(data);
-            setShowDropdown(true);
-          }
-        }
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error('Search error:', err);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsSearching(false);
-        }
-      }
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [searchQuery]);
-
-  const handleSelect = (ticker: string) => {
-    onSelectCompany(ticker);
-    setSearchQuery('');
-    setShowDropdown(false);
+  const handleNavigate = (tab: string) => {
+    setActiveTab(tab);
+    setScreenerOpen(false);
+    setToolsOpen(false);
+    setMobileMenuOpen(false);
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/20 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-all shadow-lg shadow-black/5 dark:shadow-black/20">
+    <header className="sticky top-0 z-40 w-full border-b border-white/20 dark:border-slate-800/60 bg-white/85 dark:bg-slate-950/85 backdrop-blur-xl transition-all shadow-lg shadow-black/5 dark:shadow-black/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-4">
           
-          {/* Logo - Redirects to Mollet Capital Official Site */}
-          <a
-            href="https://molletcapital.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 transition-opacity hover:opacity-90 flex items-center"
-            title="Visit Mollet Capital Official Website (molletcapital.com)"
-          >
-            <MolletLogo size="md" />
-          </a>
-
-          {/* Search Bar */}
-          <div className="relative flex-1 max-w-md" ref={searchRef}>
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchQuery.trim() && setShowDropdown(true)}
-                placeholder="Search ticker or company (e.g. NVDA, AAPL, JPM, TSLA)..."
-                className="w-full pl-10 pr-10 py-2 text-sm bg-slate-100/70 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#851428]/50 focus:border-[#851428] transition-all shadow-inner"
-              />
-              {isSearching ? (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#851428] border-t-transparent rounded-full animate-spin" />
-              ) : searchQuery ? (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-                >
-                  ✕
-                </button>
-              ) : null}
-            </div>
-
-            {/* Dropdown Results */}
-            {showDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-50 divide-y divide-slate-100/50 dark:divide-slate-800/50 max-h-80 overflow-y-auto">
-                {searchResults.length > 0 ? (
-                  searchResults.map((item) => (
-                    <button
-                      key={item.ticker}
-                      onClick={() => handleSelect(item.ticker)}
-                      className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-[#851428]/10 dark:hover:bg-[#851428]/20 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#851428]/10 dark:bg-slate-800/80 backdrop-blur-md flex items-center justify-center font-bold font-mono text-xs text-[#851428] dark:text-rose-400 border border-[#851428]/20">
-                          {item.ticker.slice(0, 3)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-900 dark:text-white text-sm">
-                              {item.ticker}
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              {item.exchange}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-                            {item.name} • {item.sector}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full backdrop-blur-md ${
-                          item.screening.status === 'COMPLIANT'
-                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                            : 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30'
-                        }`}>
-                          {item.screening.status === 'COMPLIANT' ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Halal
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-3 h-3 text-rose-500" /> Non-Compliant
-                            </>
-                          )}
-                        </span>
-                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          ${item.price.toFixed(2)}
-                        </div>
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
-                    No exact match found for &quot;{searchQuery}&quot;. Click to generate dynamic AAOIFI ratio check.
-                  </div>
-                )}
-              </div>
-            )}
+          {/* Logo & Brand Trigger */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => handleNavigate('landing')}
+              className="transition-opacity hover:opacity-90 flex items-center text-left"
+              title="Go to Home (Mollet Capital)"
+            >
+              <MolletLogo size="md" />
+            </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
+          {/* Desktop Sub-grouped Dropdown Navigation */}
+          <nav className="hidden md:flex items-center gap-2 text-sm font-medium">
+            
+            {/* 1. Home */}
             <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'dashboard'
-                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+              onClick={() => handleNavigate('landing')}
+              className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'landing'
+                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
               }`}
             >
-              <TrendingUp className="w-4 h-4" /> Dashboard
+              <Home className="w-4 h-4" />
+              <span>Home</span>
             </button>
-            <button
-              onClick={() => setActiveTab('universe')}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'universe'
-                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
+
+            {/* 2. Screener & Research Dropdown */}
+            <div 
+              className="relative" 
+              ref={screenerRef}
+              onMouseEnter={() => setScreenerOpen(true)}
+              onMouseLeave={() => setScreenerOpen(false)}
             >
-              <Database className="w-4 h-4" /> Stock Universe
-            </button>
-            <button
-              onClick={() => setActiveTab('compare')}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'compare'
-                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
+              <button
+                onClick={() => setScreenerOpen(!screenerOpen)}
+                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                  isScreenerActive
+                    ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Screener &amp; Markets</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${screenerOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {screenerOpen && (
+                <div className="absolute top-full left-0 mt-1 w-64 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl shadow-black/20 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <button
+                    onClick={() => handleNavigate('dashboard')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start gap-3 group ${
+                      activeTab === 'dashboard'
+                        ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[#851428] dark:text-rose-400 group-hover:bg-[#851428] group-hover:text-white transition-colors">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Audit Dashboard</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Real-time stock audit &amp; compliance breakdown</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('universe')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start gap-3 group mt-1 ${
+                      activeTab === 'universe'
+                        ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[#851428] dark:text-rose-400 group-hover:bg-[#851428] group-hover:text-white transition-colors">
+                      <Database className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Stock Universe</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Search 10,000+ stocks &amp; Certified Halal ETFs</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('compare')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start gap-3 group mt-1 ${
+                      activeTab === 'compare'
+                        ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[#851428] dark:text-rose-400 group-hover:bg-[#851428] group-hover:text-white transition-colors">
+                      <BarChart2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Stock Comparison</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Side-by-side Shariah ratio comparison</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Tools & Methodology Dropdown */}
+            <div 
+              className="relative" 
+              ref={toolsRef}
+              onMouseEnter={() => setToolsOpen(true)}
+              onMouseLeave={() => setToolsOpen(false)}
             >
-              <BarChart2 className="w-4 h-4" /> Compare
-            </button>
-            <button
-              onClick={() => setActiveTab('purification')}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'purification'
-                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
-            >
-              <Calculator className="w-4 h-4" /> Purification
-            </button>
-            <button
-              onClick={() => setActiveTab('methodology')}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'methodology'
-                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" /> Methodology
-            </button>
-            <button
-              onClick={() => setActiveTab('api')}
-              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'api'
-                  ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
-            >
-              <Code className="w-4 h-4" /> API
-            </button>
+              <button
+                onClick={() => setToolsOpen(!toolsOpen)}
+                className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                  isToolsActive
+                    ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Tools &amp; Governance</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${toolsOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {toolsOpen && (
+                <div className="absolute top-full left-0 mt-1 w-64 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl shadow-black/20 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <button
+                    onClick={() => handleNavigate('purification')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start gap-3 group ${
+                      activeTab === 'purification'
+                        ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[#851428] dark:text-rose-400 group-hover:bg-[#851428] group-hover:text-white transition-colors">
+                      <Calculator className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Dividend Purification</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">Calculate exact non-permissible charity amounts</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavigate('methodology')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start gap-3 group mt-1 ${
+                      activeTab === 'methodology'
+                        ? 'bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[#851428] dark:text-rose-400 group-hover:bg-[#851428] group-hover:text-white transition-colors">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">Shariah Methodology</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">AAOIFI, MSCI &amp; Dow Jones screening standards</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
           </nav>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
+          {/* Action controls (Standard Switcher, Quick Search, Watchlist & Dark Mode) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
-            {/* Standard Selector */}
-            <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+            {/* Shariah Standard Selector */}
+            <div className="hidden lg:flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
               {(['AAOIFI', 'STRICT_RETAIL', 'MSCI', 'DJ'] as ShariahStandard[]).map((st) => (
                 <button
                   key={st}
@@ -307,10 +265,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               ))}
             </div>
 
-            {/* Watchlist button */}
+            {/* Quick Search Trigger (Mobile + Desktop header icon) */}
+            {openSearch && (
+              <button
+                onClick={openSearch}
+                className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl transition-all"
+                title="Search Stock Ticker"
+              >
+                <Search className="w-5 h-5 text-[#851428] dark:text-rose-400" />
+              </button>
+            )}
+
+            {/* Watchlist Drawer Button */}
             <button
               onClick={openWatchlist}
-              className="relative p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl transition-all"
+              className="relative p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl transition-all"
               title="Saved Watchlist"
             >
               <Bookmark className="w-5 h-5" />
@@ -324,15 +293,123 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Dark Mode Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl transition-all"
+              className="p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl transition-all"
               title="Toggle theme"
             >
               {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-700" />}
+            </button>
+
+            {/* Mobile Hamburger Toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl transition-all"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
 
         </div>
       </div>
+
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+          
+          {/* Mobile Search Button in Drawer */}
+          {openSearch && (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                openSearch();
+              }}
+              className="w-full text-left px-4 py-3 rounded-xl bg-[#851428]/10 text-[#851428] dark:text-rose-400 font-bold text-sm flex items-center justify-between border border-[#851428]/20"
+            >
+              <span className="flex items-center gap-2">
+                <Search className="w-4 h-4" /> Search Stock Ticker (e.g. NVDA)
+              </span>
+              <span className="text-[10px] uppercase font-extrabold bg-[#851428] text-white px-2 py-0.5 rounded-md">Quick</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => handleNavigate('landing')}
+            className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 ${
+              activeTab === 'landing' ? 'bg-[#851428]/10 text-[#851428]' : 'text-slate-700 dark:text-slate-200'
+            }`}
+          >
+            <Home className="w-5 h-5 text-[#851428]" /> Home Page
+          </button>
+
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-4 py-1">
+              Screener &amp; Markets
+            </div>
+            <button
+              onClick={() => handleNavigate('dashboard')}
+              className={`w-full text-left px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-3 ${
+                activeTab === 'dashboard' ? 'bg-[#851428]/10 text-[#851428] font-bold' : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4 text-[#851428]" /> Audit Dashboard
+            </button>
+            <button
+              onClick={() => handleNavigate('universe')}
+              className={`w-full text-left px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-3 ${
+                activeTab === 'universe' ? 'bg-[#851428]/10 text-[#851428] font-bold' : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <Database className="w-4 h-4 text-[#851428]" /> Stock Universe Directory
+            </button>
+            <button
+              onClick={() => handleNavigate('compare')}
+              className={`w-full text-left px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-3 ${
+                activeTab === 'compare' ? 'bg-[#851428]/10 text-[#851428] font-bold' : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <BarChart2 className="w-4 h-4 text-[#851428]" /> Compare Stocks
+            </button>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-4 py-1">
+              Tools &amp; Governance
+            </div>
+            <button
+              onClick={() => handleNavigate('purification')}
+              className={`w-full text-left px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-3 ${
+                activeTab === 'purification' ? 'bg-[#851428]/10 text-[#851428] font-bold' : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <Calculator className="w-4 h-4 text-[#851428]" /> Dividend Purification
+            </button>
+            <button
+              onClick={() => handleNavigate('methodology')}
+              className={`w-full text-left px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-3 ${
+                activeTab === 'methodology' ? 'bg-[#851428]/10 text-[#851428] font-bold' : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-[#851428]" /> Shariah Methodology
+            </button>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between px-2">
+            <span className="text-xs text-slate-500 font-medium">Shariah Standard:</span>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+              {(['AAOIFI', 'STRICT_RETAIL', 'MSCI', 'DJ'] as ShariahStandard[]).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStandard(st)}
+                  className={`px-2 py-1 text-[11px] font-bold rounded-lg ${
+                    standard === st ? 'bg-[#851428] text-white' : 'text-slate-500'
+                  }`}
+                >
+                  {st === 'STRICT_RETAIL' ? 'Strict' : st}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

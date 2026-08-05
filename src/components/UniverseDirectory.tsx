@@ -394,120 +394,202 @@ export const UniverseDirectory: React.FC<UniverseDirectoryProps> = ({
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-100/80 dark:bg-slate-950/80 text-[11px] font-bold text-slate-500 dark:text-slate-400 font-mono border-b border-slate-200 dark:border-slate-800">
-                <th className="py-3.5 px-4">Company / Ticker</th>
-                <th className="py-3.5 px-4">Sector</th>
-                <th className="py-3.5 px-4">Price</th>
-                <th className="py-3.5 px-4">Market Cap</th>
-                <th className="py-3.5 px-4">Debt / MCap</th>
-                <th className="py-3.5 px-4">Cash / MCap</th>
-                <th className="py-3.5 px-4">Impure Rev %</th>
-                <th className="py-3.5 px-4 text-center">{selectedStandard} Status</th>
-                <th className="py-3.5 px-4 text-right">Audit Detail</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-xs">
-              {filteredStocks.map((stock) => {
-                const audit = stock.standardsAudit[selectedStandard] || stock.standardsAudit['AAOIFI'];
-                const isCompliant = audit?.status === 'COMPLIANT';
+        <>
+          {/* Mobile Card Layout (sm screens) */}
+          <div className="md:hidden space-y-3">
+            {filteredStocks.map((stock) => {
+              const audit = stock.standardsAudit[selectedStandard] || stock.standardsAudit['AAOIFI'];
+              const isCompliant = audit?.status === 'COMPLIANT';
 
-                return (
-                  <tr key={stock.ticker} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    
-                    {/* Ticker & Name */}
-                    <td className="py-3.5 px-4">
-                      <button
-                        onClick={() => onSelectCompany(stock.ticker)}
-                        className="text-left group"
-                      >
-                        <div className="font-bold font-mono text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors flex items-center gap-1">
+              return (
+                <div 
+                  key={stock.ticker}
+                  className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold font-mono text-base text-slate-900 dark:text-white">
                           {stock.ticker}
-                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                        <div className="text-[11px] text-slate-500 max-w-[160px] truncate font-sans">
-                          {stock.name}
-                        </div>
-                      </button>
-                    </td>
-
-                    {/* Sector */}
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
-                      <div className="max-w-[150px] truncate" title={stock.sector}>
-                        {stock.sector}
+                        </span>
+                        <span className="text-xs font-bold font-mono text-slate-500">
+                          ${stock.price.toFixed(2)}
+                        </span>
                       </div>
-                    </td>
+                      <div className="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-1">
+                        {stock.name}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {stock.sector} &bull; MCap {formatMcap(stock.marketCap)}
+                      </div>
+                    </div>
 
-                    {/* Price */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
-                      ${stock.price.toFixed(2)}
-                    </td>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono shrink-0 ${
+                      isCompliant 
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                    }`}>
+                      {isCompliant ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> HALAL
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-rose-500" /> PROHIBITED
+                        </>
+                      )}
+                    </span>
+                  </div>
 
-                    {/* Market Cap */}
-                    <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
-                      {formatMcap(stock.marketCap)}
-                    </td>
+                  {/* Shariah Metrics Grid */}
+                  <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 text-center font-mono text-[11px]">
+                    <div>
+                      <div className="text-slate-400 text-[10px]">Debt</div>
+                      <div className={`font-bold mt-0.5 ${audit.debt_ratio <= 0.30 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-500'}`}>
+                        {(audit.debt_ratio * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">Cash</div>
+                      <div className={`font-bold mt-0.5 ${audit.cash_ratio <= 0.30 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-500'}`}>
+                        {(audit.cash_ratio * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[10px]">Impure Rev</div>
+                      <div className={`font-bold mt-0.5 ${audit.impure_ratio <= 0.05 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-500'}`}>
+                        {(audit.impure_ratio * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
 
-                    {/* Debt Ratio */}
-                    <td className="py-3.5 px-4 font-mono">
-                      <span className={audit.debt_ratio <= 0.30 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 font-bold'}>
-                        {(audit.debt_ratio * 100).toFixed(2)}%
-                      </span>
-                    </td>
+                  <button
+                    onClick={() => onSelectCompany(stock.ticker)}
+                    className="w-full py-2.5 rounded-xl bg-[#851428] hover:bg-rose-700 text-white font-mono text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/20"
+                  >
+                    View Full Shariah Audit &rarr;
+                  </button>
+                </div>
+              );
+            })}
+          </div>
 
-                    {/* Cash Ratio */}
-                    <td className="py-3.5 px-4 font-mono">
-                      <span className={audit.cash_ratio <= 0.30 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 font-bold'}>
-                        {(audit.cash_ratio * 100).toFixed(2)}%
-                      </span>
-                    </td>
+          {/* Desktop Table View (md+ screens) */}
+          <div className="hidden md:block overflow-x-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100/80 dark:bg-slate-950/80 text-[11px] font-bold text-slate-500 dark:text-slate-400 font-mono border-b border-slate-200 dark:border-slate-800">
+                  <th className="py-3.5 px-4">Company / Ticker</th>
+                  <th className="py-3.5 px-4">Sector</th>
+                  <th className="py-3.5 px-4">Price</th>
+                  <th className="py-3.5 px-4">Market Cap</th>
+                  <th className="py-3.5 px-4">Debt / MCap</th>
+                  <th className="py-3.5 px-4">Cash / MCap</th>
+                  <th className="py-3.5 px-4">Impure Rev %</th>
+                  <th className="py-3.5 px-4 text-center">{selectedStandard} Status</th>
+                  <th className="py-3.5 px-4 text-right">Audit Detail</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-xs">
+                {filteredStocks.map((stock) => {
+                  const audit = stock.standardsAudit[selectedStandard] || stock.standardsAudit['AAOIFI'];
+                  const isCompliant = audit?.status === 'COMPLIANT';
 
-                    {/* Impure Ratio */}
-                    <td className="py-3.5 px-4 font-mono">
-                      <span className={audit.impure_ratio <= 0.05 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 font-bold'}>
-                        {(audit.impure_ratio * 100).toFixed(2)}%
-                      </span>
-                    </td>
+                  return (
+                    <tr key={stock.ticker} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      
+                      {/* Ticker & Name */}
+                      <td className="py-3.5 px-4">
+                        <button
+                          onClick={() => onSelectCompany(stock.ticker)}
+                          className="text-left group"
+                        >
+                          <div className="font-bold font-mono text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors flex items-center gap-1">
+                            {stock.ticker}
+                            <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          <div className="text-[11px] text-slate-500 max-w-[160px] truncate font-sans">
+                            {stock.name}
+                          </div>
+                        </button>
+                      </td>
 
-                    {/* Compliance Status Badge */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono ${
-                        isCompliant 
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                      }`}>
-                        {isCompliant ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            COMPLIANT
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-3.5 h-3.5 text-rose-500" />
-                            NON-COMPLIANT
-                          </>
-                        )}
-                      </span>
-                    </td>
+                      {/* Sector */}
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                        <div className="max-w-[150px] truncate" title={stock.sector}>
+                          {stock.sector}
+                        </div>
+                      </td>
 
-                    {/* Action Button */}
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => onSelectCompany(stock.ticker)}
-                        className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-[#851428] hover:text-white dark:hover:bg-rose-700 font-mono text-[11px] font-semibold transition-all"
-                      >
-                        Audit
-                      </button>
-                    </td>
+                      {/* Price */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                        ${stock.price.toFixed(2)}
+                      </td>
 
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      {/* Market Cap */}
+                      <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
+                        {formatMcap(stock.marketCap)}
+                      </td>
+
+                      {/* Debt Ratio */}
+                      <td className="py-3.5 px-4 font-mono">
+                        <span className={audit.debt_ratio <= 0.30 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 font-bold'}>
+                          {(audit.debt_ratio * 100).toFixed(2)}%
+                        </span>
+                      </td>
+
+                      {/* Cash Ratio */}
+                      <td className="py-3.5 px-4 font-mono">
+                        <span className={audit.cash_ratio <= 0.30 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 font-bold'}>
+                          {(audit.cash_ratio * 100).toFixed(2)}%
+                        </span>
+                      </td>
+
+                      {/* Impure Ratio */}
+                      <td className="py-3.5 px-4 font-mono">
+                        <span className={audit.impure_ratio <= 0.05 ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400 font-bold'}>
+                          {(audit.impure_ratio * 100).toFixed(2)}%
+                        </span>
+                      </td>
+
+                      {/* Compliance Status Badge */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono ${
+                          isCompliant 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                        }`}>
+                          {isCompliant ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                              COMPLIANT
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                              NON-COMPLIANT
+                            </>
+                          )}
+                        </span>
+                      </td>
+
+                      {/* Action Button */}
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => onSelectCompany(stock.ticker)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-[#851428] hover:text-white dark:hover:bg-rose-700 font-mono text-[11px] font-semibold transition-all"
+                        >
+                          Audit
+                        </button>
+                      </td>
+
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
     </div>
